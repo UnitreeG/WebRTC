@@ -2,16 +2,33 @@
 <html>
 <head>
     <title>G1 WebRTC Observable Client</title>
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 </head>
 <body>
     <h1>G1 WebRTC Observable Client</h1>
     <div id="notebook"></div>
     <script>
+        // Constants matching G1 robot's protocol
+        const DATA_CHANNEL_TYPE = {
+            VALIDATION: "validation",
+            SUBSCRIBE: "subscribe",
+            UNSUBSCRIBE: "unsubscribe",
+            MSG: "msg",
+            REQUEST: "req",
+            RESPONSE: "res",
+            VID: "vid",
+            AUD: "aud",
+            ERR: "err",
+            HEARTBEAT: "heartbeat",
+            RTC_INNER_REQ: "rtc_inner_req",
+            RTC_REPORT: "rtc_report",
+            ADD_ERROR: "add_error",
+            RM_ERROR: "rm_error",
+            ERRORS: "errors"
+        };
+
         // Create WebRTC state
         let peerConnection;
         let dataChannel;
-        let socket;
 
         // Create main container
         const container = document.getElementById("notebook");
@@ -25,18 +42,24 @@
         const webrtc = {
             async connect() {
                 try {
-                    socket = io('http://localhost:3000');
                     peerConnection = new RTCPeerConnection(configuration);
                     dataChannel = peerConnection.createDataChannel('data');
                     
                     setupDataChannel(dataChannel);
-                    setupPeerConnection(peerConnection, socket);
+                    setupPeerConnection(peerConnection);
                     
                     const offer = await peerConnection.createOffer();
                     await peerConnection.setLocalDescription(offer);
-                    socket.emit('offer', offer);
                     
-                    logMessage('Connecting to WebRTC server...');
+                    // Send offer to G1 robot (you'll need to implement this part)
+                    const response = await sendOfferToRobot(offer);
+                    if (response.sdp === "reject") {
+                        throw new Error("G1 is connected by another WebRTC client. Close your mobile APP and try again.");
+                    }
+                    
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(response));
+                    
+                    logMessage('Connecting to G1 WebRTC server...');
                     return "Connecting...";
                 } catch (error) {
                     logMessage('Connection error: ' + error.message, 'error');
@@ -45,10 +68,12 @@
             },
             async switchVideo(enabled) {
                 if (dataChannel) {
-                    dataChannel.send(JSON.stringify({
-                        type: 'VID',
-                        data: enabled ? 'on' : 'off'
-                    }));
+                    const message = {
+                        type: DATA_CHANNEL_TYPE.VID,
+                        topic: "",
+                        data: enabled ? "on" : "off"
+                    };
+                    dataChannel.send(JSON.stringify(message));
                     logMessage(`Video ${enabled ? 'enabled' : 'disabled'}`);
                     return `Video ${enabled ? 'enabled' : 'disabled'}`;
                 }
@@ -56,10 +81,12 @@
             },
             async switchAudio(enabled) {
                 if (dataChannel) {
-                    dataChannel.send(JSON.stringify({
-                        type: 'AUD',
-                        data: enabled ? 'on' : 'off'
-                    }));
+                    const message = {
+                        type: DATA_CHANNEL_TYPE.AUD,
+                        topic: "",
+                        data: enabled ? "on" : "off"
+                    };
+                    dataChannel.send(JSON.stringify(message));
                     logMessage(`Audio ${enabled ? 'enabled' : 'disabled'}`);
                     return `Audio ${enabled ? 'enabled' : 'disabled'}`;
                 }
@@ -67,13 +94,15 @@
             },
             async disableTrafficSaving(disabled) {
                 if (dataChannel) {
-                    dataChannel.send(JSON.stringify({
-                        type: 'RTC_INNER_REQ',
+                    const message = {
+                        type: DATA_CHANNEL_TYPE.RTC_INNER_REQ,
+                        topic: "",
                         data: {
-                            req_type: 'disable_traffic_saving',
-                            instruction: disabled ? 'on' : 'off'
+                            req_type: "disable_traffic_saving",
+                            instruction: disabled ? "on" : "off"
                         }
-                    }));
+                    };
+                    dataChannel.send(JSON.stringify(message));
                     logMessage(`Traffic saving ${disabled ? 'disabled' : 'enabled'}`);
                     return `Traffic saving ${disabled ? 'disabled' : 'enabled'}`;
                 }
@@ -107,28 +136,101 @@
             };
             
             channel.onmessage = (event) => {
+                const message = JSON.parse(event.data);
                 logMessage(`Received: ${event.data}`);
+                
+                // Handle validation
+                if (message.type === DATA_CHANNEL_TYPE.VALIDATION) {
+                    handleValidation(message);
+                }
+                // Handle other message types
+                else if (message.type === DATA_CHANNEL_TYPE.ERR) {
+                    handleError(message);
+                }
             };
         }
 
-        function setupPeerConnection(pc, socket) {
+        function setupPeerConnection(pc) {
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    socket.emit('ice-candidate', event.candidate);
+                    // Send candidate to G1 robot (you'll need to implement this part)
+                    sendIceCandidateToRobot(event.candidate);
                 }
             };
 
-            socket.on('answer', async (answer) => {
-                await pc.setRemoteDescription(answer);
-            });
-
-            socket.on('ice-candidate', async (candidate) => {
-                try {
-                    await pc.addIceCandidate(candidate);
-                } catch (error) {
-                    logMessage('Error adding ICE candidate: ' + error.message, 'error');
+            pc.onconnectionstatechange = () => {
+                const state = pc.connectionState;
+                if (state === "connected") {
+                    logMessage("WebRTC connection established");
+                } else if (state === "failed") {
+                    logMessage("WebRTC connection failed", "error");
                 }
+            };
+        }
+
+        async function sendOfferToRobot(offer) {
+            // This function needs to be implemented based on your robot's API
+            // For local testing, you can use:
+            const response = await fetch('http://192.168.8.181/webrtc/offer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: "STA_localNetwork",
+                    sdp: offer.sdp,
+                    type: offer.type
+                })
             });
+            return response.json();
+        }
+
+        async function sendIceCandidateToRobot(candidate) {
+            // This function needs to be implemented based on your robot's API
+            try {
+                await fetch('http://192.168.8.181/webrtc/candidate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(candidate)
+                });
+            } catch (error) {
+                logMessage('Error sending ICE candidate: ' + error.message, 'error');
+            }
+        }
+
+        function handleValidation(message) {
+            if (message.data === "Validation Ok.") {
+                logMessage("Validation successful");
+            } else {
+                // Handle validation key exchange
+                const encryptedKey = encryptKey(message.data);
+                const validationMessage = {
+                    type: DATA_CHANNEL_TYPE.VALIDATION,
+                    topic: "",
+                    data: encryptedKey
+                };
+                dataChannel.send(JSON.stringify(validationMessage));
+            }
+        }
+
+        function handleError(message) {
+            if (message.info === "Validation Needed.") {
+                // Resend validation
+                const validationMessage = {
+                    type: DATA_CHANNEL_TYPE.VALIDATION,
+                    topic: "",
+                    data: ""
+                };
+                dataChannel.send(JSON.stringify(validationMessage));
+            }
+        }
+
+        function encryptKey(key) {
+            // Implement MD5 encryption as per the robot's protocol
+            // For now, return the key as is
+            return key;
         }
 
         // Set up UI
@@ -166,9 +268,9 @@
         // Add command reference
         const reference = document.createElement('div');
         reference.innerHTML = `
-            <h2>WebRTC Commands</h2>
+            <h2>G1 WebRTC Commands</h2>
             <pre>
-// Connect to WebRTC server
+// Connect to G1 robot
 webrtc.connect()
 
 // Control video
