@@ -1,0 +1,10 @@
+{
+  "name": "webrtc",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "G1 WebRTC Observable Client",
+  "main": "webrtc.js",
+  "dependencies": {
+    "@observablehq/stdlib": "^5.8.3"
+  }
+} 
