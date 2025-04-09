@@ -1,173 +1,249 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>G1 WebRTC Observable Client</title>
+    <title>WebRTC Observable REPL</title>
     <script src="https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@observablehq/notebook@5/dist/notebook.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            max-width: 800px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 960px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f8f9fa;
         }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-        }
-        #status {
-            padding: 15px;
-            margin: 20px 0;
+        .notebook {
+            background: white;
+            padding: 20px;
             border-radius: 8px;
-            text-align: center;
-            font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .connected {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .disconnected {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        #messages {
-            height: 300px;
-            overflow-y: auto;
+        .cell {
+            margin: 20px 0;
+            padding: 15px;
             border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 20px 0;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 4px;
         }
-        #messages div {
+        .cell-input {
+            width: 100%;
+            font-family: Monaco, monospace;
             padding: 8px;
             margin: 5px 0;
+            border: 1px solid #ced4da;
             border-radius: 4px;
-            background-color: #f8f9fa;
+        }
+        .cell-output {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: Monaco, monospace;
         }
         .controls {
+            margin: 20px 0;
             display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 10px;
         }
         button {
-            padding: 12px 24px;
-            margin: 5px;
-            border-radius: 6px;
-            border: none;
-            background-color: #007bff;
+            padding: 8px 16px;
+            background: #007bff;
             color: white;
+            border: none;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: 600;
-            transition: background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         button:hover {
-            background-color: #0056b3;
+            background: #0056b3;
         }
         button:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
+            background: #6c757d;
         }
-        .container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .log {
+            height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #343a40;
+            color: #f8f9fa;
+            border-radius: 4px;
+            font-family: Monaco, monospace;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>G1 WebRTC Observable Client</h1>
+    <div class="notebook">
+        <h1>WebRTC Observable REPL</h1>
         <div id="status" class="disconnected">Disconnected</div>
-        <div id="messages"></div>
         <div class="controls">
             <button id="connect">Connect</button>
-            <button id="send" disabled>Send Message</button>
+            <button id="video" disabled>Enable Video</button>
+            <button id="audio" disabled>Enable Audio</button>
+            <button id="traffic" disabled>Traffic Saving</button>
         </div>
+        <div id="log" class="log"></div>
+        <div id="cells"></div>
+        <button id="addCell">+ Add Cell</button>
     </div>
 
     <script type="module">
-        import { Runtime, Inspector } from "https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js";
-        import { define, notebook } from "https://cdn.jsdelivr.net/npm/@observablehq/notebook@5/dist/notebook.js";
-
-        const status = document.getElementById('status');
-        const messages = document.getElementById('messages');
-        const connectBtn = document.getElementById('connect');
-        const sendBtn = document.getElementById('send');
-
+        // WebRTC state
         let peerConnection;
         let dataChannel;
         let socket;
+        
+        // UI elements
+        const status = document.getElementById('status');
+        const log = document.getElementById('log');
+        const cells = document.getElementById('cells');
+        const connectBtn = document.getElementById('connect');
+        const videoBtn = document.getElementById('video');
+        const audioBtn = document.getElementById('audio');
+        const trafficBtn = document.getElementById('traffic');
 
+        // WebRTC configuration
         const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         };
 
+        // Logging function
+        function logMessage(msg, type = 'info') {
+            const entry = document.createElement('div');
+            entry.textContent = `${new Date().toLocaleTimeString()} [${type}] ${msg}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Create a new cell
+        function createCell() {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            
+            const input = document.createElement('textarea');
+            input.className = 'cell-input';
+            input.placeholder = 'Enter WebRTC command...';
+            input.rows = 3;
+            
+            const output = document.createElement('div');
+            output.className = 'cell-output';
+            
+            const runBtn = document.createElement('button');
+            runBtn.textContent = 'Run';
+            runBtn.onclick = () => executeCell(input, output);
+            
+            cell.appendChild(input);
+            cell.appendChild(runBtn);
+            cell.appendChild(output);
+            cells.appendChild(cell);
+            
+            input.focus();
+        }
+
+        // Execute cell code
+        async function executeCell(input, output) {
+            const code = input.value;
+            try {
+                // Create a safe evaluation context with WebRTC functions
+                const context = {
+                    dataChannel,
+                    peerConnection,
+                    socket,
+                    log: logMessage,
+                    switchVideo: (enabled) => {
+                        if (dataChannel) {
+                            dataChannel.send(JSON.stringify({
+                                type: 'VID',
+                                data: enabled ? 'on' : 'off'
+                            }));
+                            logMessage(`Video channel ${enabled ? 'enabled' : 'disabled'}`);
+                        }
+                    },
+                    switchAudio: (enabled) => {
+                        if (dataChannel) {
+                            dataChannel.send(JSON.stringify({
+                                type: 'AUD',
+                                data: enabled ? 'on' : 'off'
+                            }));
+                            logMessage(`Audio channel ${enabled ? 'enabled' : 'disabled'}`);
+                        }
+                    },
+                    disableTrafficSaving: async (disabled) => {
+                        if (dataChannel) {
+                            const data = {
+                                type: 'RTC_INNER_REQ',
+                                data: {
+                                    req_type: 'disable_traffic_saving',
+                                    instruction: disabled ? 'on' : 'off'
+                                }
+                            };
+                            dataChannel.send(JSON.stringify(data));
+                            logMessage(`Traffic saving ${disabled ? 'disabled' : 'enabled'}`);
+                        }
+                    }
+                };
+
+                const result = await eval(`(async () => { 
+                    with (context) { 
+                        ${code}
+                    } 
+                })()`);
+                
+                output.textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+                logMessage(error.message, 'error');
+            }
+        }
+
+        // Connect to WebRTC
         async function connect() {
             try {
                 socket = io('http://localhost:3000');
                 
                 peerConnection = new RTCPeerConnection(configuration);
                 
-                // Create data channel
-                dataChannel = peerConnection.createDataChannel('messageChannel');
+                dataChannel = peerConnection.createDataChannel('data');
                 setupDataChannel(dataChannel);
 
-                // Handle ICE candidates
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
                         socket.emit('ice-candidate', event.candidate);
                     }
                 };
 
-                // Create and send offer
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
                 socket.emit('offer', offer);
 
-                // Handle answer
                 socket.on('answer', async (answer) => {
                     await peerConnection.setRemoteDescription(answer);
                 });
 
-                // Handle ICE candidates from server
                 socket.on('ice-candidate', async (candidate) => {
                     try {
                         await peerConnection.addIceCandidate(candidate);
                     } catch (error) {
-                        console.error('Error adding ICE candidate:', error);
+                        logMessage('Error adding ICE candidate: ' + error.message, 'error');
                     }
                 });
 
-                // Connection state changes
-                peerConnection.onconnectionstatechange = () => {
-                    if (peerConnection.connectionState === 'connected') {
-                        status.textContent = 'Connected';
-                        status.className = 'connected';
-                        sendBtn.disabled = false;
-                    } else if (peerConnection.connectionState === 'disconnected') {
-                        status.textContent = 'Disconnected';
-                        status.className = 'disconnected';
-                        sendBtn.disabled = true;
-                    }
-                };
-
                 connectBtn.disabled = true;
+                logMessage('Connecting to WebRTC server...');
             } catch (error) {
-                console.error('Connection error:', error);
+                logMessage('Connection error: ' + error.message, 'error');
                 status.textContent = 'Connection failed';
                 status.className = 'disconnected';
             }
@@ -175,39 +251,52 @@
 
         function setupDataChannel(channel) {
             channel.onopen = () => {
-                console.log('Data channel opened');
-                status.textContent = 'Data channel opened';
+                logMessage('Data channel opened');
+                status.textContent = 'Connected';
                 status.className = 'connected';
+                videoBtn.disabled = false;
+                audioBtn.disabled = false;
+                trafficBtn.disabled = false;
             };
 
             channel.onclose = () => {
-                console.log('Data channel closed');
-                status.textContent = 'Data channel closed';
+                logMessage('Data channel closed');
+                status.textContent = 'Disconnected';
                 status.className = 'disconnected';
+                videoBtn.disabled = true;
+                audioBtn.disabled = true;
+                trafficBtn.disabled = true;
             };
 
             channel.onmessage = (event) => {
-                const message = document.createElement('div');
-                message.textContent = `Received: ${event.data}`;
-                messages.appendChild(message);
-                messages.scrollTop = messages.scrollHeight;
+                logMessage('Received: ' + event.data);
             };
         }
 
-        function sendMessage() {
-            if (dataChannel && dataChannel.readyState === 'open') {
-                const message = `Hello from client! Time: ${new Date().toISOString()}`;
-                dataChannel.send(message);
-                
-                const messageElement = document.createElement('div');
-                messageElement.textContent = `Sent: ${message}`;
-                messages.appendChild(messageElement);
-                messages.scrollTop = messages.scrollHeight;
-            }
-        }
-
+        // Event listeners
         connectBtn.addEventListener('click', connect);
-        sendBtn.addEventListener('click', sendMessage);
+        document.getElementById('addCell').addEventListener('click', createCell);
+        
+        videoBtn.addEventListener('click', () => {
+            const enabled = videoBtn.textContent === 'Enable Video';
+            context.switchVideo(enabled);
+            videoBtn.textContent = enabled ? 'Disable Video' : 'Enable Video';
+        });
+        
+        audioBtn.addEventListener('click', () => {
+            const enabled = audioBtn.textContent === 'Enable Audio';
+            context.switchAudio(enabled);
+            audioBtn.textContent = enabled ? 'Disable Audio' : 'Enable Audio';
+        });
+        
+        trafficBtn.addEventListener('click', () => {
+            const disabled = trafficBtn.textContent === 'Traffic Saving';
+            context.disableTrafficSaving(disabled);
+            trafficBtn.textContent = disabled ? 'Enable Traffic' : 'Traffic Saving';
+        });
+
+        // Create initial cell
+        createCell();
     </script>
 </body>
 </html> 
