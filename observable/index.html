@@ -3,14 +3,18 @@
 <head>
     <title>G1 WebRTC Observable Client</title>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    <script type="module">
+</head>
+<body>
+    <h1>G1 WebRTC Observable Client</h1>
+    <div id="notebook"></div>
+    <script>
         // Create WebRTC state
         let peerConnection;
         let dataChannel;
         let socket;
 
         // Create main container
-        const container = document.querySelector("#notebook");
+        const container = document.getElementById("notebook");
         
         // WebRTC configuration
         const configuration = {
@@ -242,9 +246,5 @@ webrtc.disableTrafficSaving(false)  // Enable traffic saving
             overflow-x: auto;
         }
     </style>
-</head>
-<body>
-    <h1>G1 WebRTC Observable Client</h1>
-    <div id="notebook"></div>
 </body>
 </html>
