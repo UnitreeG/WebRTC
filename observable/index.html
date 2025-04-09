@@ -4,12 +4,9 @@
     <title>G1 WebRTC Observable Client</title>
     <script type="module">
         import {Runtime, Inspector} from "https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js";
-        import {Library} from "https://cdn.jsdelivr.net/npm/@observablehq/stdlib@5/dist/stdlib.js";
         
-        // Create the runtime with standard library
+        // Create the runtime
         const runtime = new Runtime();
-        
-        // Create a new notebook
         const notebook = runtime.module();
         
         // Create main container
@@ -36,7 +33,7 @@
         }));
         
         // Create a view of the WebRTC controls
-        notebook.define("viewof controls", ["webrtc"], webrtc => {
+        notebook.variable(new Inspector(container)).define("viewof controls", ["webrtc"], webrtc => {
             const div = document.createElement("div");
             div.innerHTML = `
                 <div class="controls">
@@ -63,7 +60,7 @@
         });
         
         // Create a cell to display the current status
-        notebook.define("status", ["webrtc"], webrtc => {
+        notebook.variable(new Inspector(container)).define("status", ["webrtc"], webrtc => {
             const div = document.createElement("div");
             div.innerHTML = `
                 <h2>WebRTC Observable Commands</h2>
@@ -86,12 +83,6 @@ await webrtc.disableTrafficSaving(false)  // Enable traffic saving
             `;
             return div;
         });
-        
-        // Display cells
-        for (const name of ["controls", "status"]) {
-            const cell = notebook.variable(new Inspector(container));
-            cell.define(name, notebook);
-        }
     </script>
     <style>
         body {
