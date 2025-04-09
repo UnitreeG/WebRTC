@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const wrtc = require('webrtc');
+const { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate } = require('node-webrtc');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,7 +20,7 @@ io.on('connection', (socket) => {
 
   socket.on('offer', async (offer) => {
     try {
-      const peerConnection = new wrtc.RTCPeerConnection({
+      const peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' }
         ]
@@ -30,23 +30,26 @@ io.on('connection', (socket) => {
       connections.set(socket.id, peerConnection);
 
       // Handle ICE candidates
-      peerConnection.on('icecandidate', (candidate) => {
-        socket.emit('ice-candidate', candidate);
-      });
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', event.candidate);
+        }
+      };
 
       // Handle data channels
-      peerConnection.on('datachannel', (channel) => {
+      peerConnection.ondatachannel = (event) => {
         console.log('Data channel received');
+        const channel = event.channel;
         
-        channel.on('message', (message) => {
-          console.log('Received message:', message);
+        channel.onmessage = (event) => {
+          console.log('Received message:', event.data);
           // Echo back the message
-          channel.send(`Server received: ${message}`);
-        });
-      });
+          channel.send(`Server received: ${event.data}`);
+        };
+      };
 
       // Set the remote description
-      await peerConnection.setRemoteDescription(offer);
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
       // Create and send answer
       const answer = await peerConnection.createAnswer();
@@ -62,7 +65,7 @@ io.on('connection', (socket) => {
     try {
       const peerConnection = connections.get(socket.id);
       if (peerConnection) {
-        await peerConnection.addIceCandidate(candidate);
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       }
     } catch (error) {
       console.error('Error handling ICE candidate:', error);
