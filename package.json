@@ -1,19 +1,16 @@
 {
-  "name": "webrtc",
-  "type": "module",
+  "name": "webrtc-observable",
   "version": "1.0.0",
-  "description": "G1 WebRTC Observable Client",
-  "main": "webrtc.js",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "build": "observable build",
-    "dev": "observable preview",
-    "clean": "rm -rf dist"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "@observablehq/runtime": "^5.8.3",
-    "@observablehq/stdlib": "^5.8.3"
-  },
-  "devDependencies": {
-    "@observablehq/framework": "^1.0.0"
+    "@observablehq/runtime": "^6.0.0",
+    "@observablehq/stdlib": "^5.8.8"
   }
-} 
+}

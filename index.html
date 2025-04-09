@@ -1,8 +1,98 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WebRTC Observable REPL</title>
-    <script src="https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js"></script>
+    <title>G1 WebRTC Observable Client</title>
+    <script type="module">
+        import {Runtime, Inspector} from "/@observablehq/runtime";
+        import {Generators, Library} from "/@observablehq/stdlib";
+        
+        // Create the runtime with standard library
+        const runtime = new Runtime(new Library());
+        
+        // Create a new notebook
+        const notebook = runtime.module();
+        
+        // Create main container
+        const container = document.querySelector("#notebook");
+        
+        // Define cells
+        notebook.define("webrtc", [], () => ({
+            async connect() {
+                // WebRTC connection logic will go here
+                return "Connecting...";
+            },
+            async switchVideo(enabled) {
+                // Video control logic will go here
+                return `Video ${enabled ? "enabled" : "disabled"}`;
+            },
+            async switchAudio(enabled) {
+                // Audio control logic will go here
+                return `Audio ${enabled ? "enabled" : "disabled"}`;
+            },
+            async disableTrafficSaving(disabled) {
+                // Traffic saving logic will go here
+                return `Traffic saving ${disabled ? "disabled" : "enabled"}`;
+            }
+        }));
+        
+        // Create a view of the WebRTC controls
+        notebook.define("viewof controls", ["webrtc"], webrtc => {
+            const div = document.createElement("div");
+            div.innerHTML = `
+                <div class="controls">
+                    <button id="connect">Connect</button>
+                    <button id="video" disabled>Enable Video</button>
+                    <button id="audio" disabled>Enable Audio</button>
+                    <button id="traffic" disabled>Traffic Saving</button>
+                </div>
+                <div id="status" class="disconnected">Disconnected</div>
+                <div id="log" class="log"></div>
+            `;
+            
+            const connectBtn = div.querySelector("#connect");
+            const videoBtn = div.querySelector("#video");
+            const audioBtn = div.querySelector("#audio");
+            const trafficBtn = div.querySelector("#traffic");
+            
+            connectBtn.onclick = () => webrtc.connect();
+            videoBtn.onclick = () => webrtc.switchVideo(videoBtn.textContent === "Enable Video");
+            audioBtn.onclick = () => webrtc.switchAudio(audioBtn.textContent === "Enable Audio");
+            trafficBtn.onclick = () => webrtc.disableTrafficSaving(trafficBtn.textContent === "Traffic Saving");
+            
+            return div;
+        });
+        
+        // Create a cell to display the current status
+        notebook.define("status", ["webrtc"], webrtc => {
+            const div = document.createElement("div");
+            div.innerHTML = `
+                <h2>WebRTC Observable Commands</h2>
+                <pre>
+// Connect to WebRTC server
+await webrtc.connect()
+
+// Control video
+await webrtc.switchVideo(true)   // Enable video
+await webrtc.switchVideo(false)  // Disable video
+
+// Control audio
+await webrtc.switchAudio(true)   // Enable audio
+await webrtc.switchAudio(false)  // Disable audio
+
+// Control traffic saving
+await webrtc.disableTrafficSaving(true)   // Disable traffic saving
+await webrtc.disableTrafficSaving(false)  // Enable traffic saving
+                </pre>
+            `;
+            return div;
+        });
+        
+        // Display cells
+        for (const name of ["controls", "status"]) {
+            const cell = notebook.variable(new Inspector(container));
+            cell.define(name, notebook);
+        }
+    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -10,34 +100,6 @@
             margin: 0 auto;
             padding: 20px;
             background-color: #f8f9fa;
-        }
-        .notebook {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .cell {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-        }
-        .cell-input {
-            width: 100%;
-            font-family: Monaco, monospace;
-            padding: 8px;
-            margin: 5px 0;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-        }
-        .cell-output {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            font-family: Monaco, monospace;
         }
         .controls {
             margin: 20px 0;
@@ -82,221 +144,18 @@
             font-family: Monaco, monospace;
             margin: 10px 0;
         }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-family: Monaco, monospace;
+            overflow-x: auto;
+        }
     </style>
 </head>
 <body>
-    <div class="notebook">
-        <h1>WebRTC Observable REPL</h1>
-        <div id="status" class="disconnected">Disconnected</div>
-        <div class="controls">
-            <button id="connect">Connect</button>
-            <button id="video" disabled>Enable Video</button>
-            <button id="audio" disabled>Enable Audio</button>
-            <button id="traffic" disabled>Traffic Saving</button>
-        </div>
-        <div id="log" class="log"></div>
-        <div id="cells"></div>
-        <button id="addCell">+ Add Cell</button>
-    </div>
-
-    <script type="module">
-        // WebRTC state
-        let peerConnection;
-        let dataChannel;
-        let socket;
-        
-        // UI elements
-        const status = document.getElementById('status');
-        const log = document.getElementById('log');
-        const cells = document.getElementById('cells');
-        const connectBtn = document.getElementById('connect');
-        const videoBtn = document.getElementById('video');
-        const audioBtn = document.getElementById('audio');
-        const trafficBtn = document.getElementById('traffic');
-
-        // WebRTC configuration
-        const configuration = {
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        };
-
-        // Logging function
-        function logMessage(msg, type = 'info') {
-            const entry = document.createElement('div');
-            entry.textContent = `${new Date().toLocaleTimeString()} [${type}] ${msg}`;
-            log.appendChild(entry);
-            log.scrollTop = log.scrollHeight;
-        }
-
-        // Create a new cell
-        function createCell() {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            
-            const input = document.createElement('textarea');
-            input.className = 'cell-input';
-            input.placeholder = 'Enter WebRTC command...';
-            input.rows = 3;
-            
-            const output = document.createElement('div');
-            output.className = 'cell-output';
-            
-            const runBtn = document.createElement('button');
-            runBtn.textContent = 'Run';
-            runBtn.onclick = () => executeCell(input, output);
-            
-            cell.appendChild(input);
-            cell.appendChild(runBtn);
-            cell.appendChild(output);
-            cells.appendChild(cell);
-            
-            input.focus();
-        }
-
-        // Execute cell code
-        async function executeCell(input, output) {
-            const code = input.value;
-            try {
-                // Create a safe evaluation context with WebRTC functions
-                const context = {
-                    dataChannel,
-                    peerConnection,
-                    socket,
-                    log: logMessage,
-                    switchVideo: (enabled) => {
-                        if (dataChannel) {
-                            dataChannel.send(JSON.stringify({
-                                type: 'VID',
-                                data: enabled ? 'on' : 'off'
-                            }));
-                            logMessage(`Video channel ${enabled ? 'enabled' : 'disabled'}`);
-                        }
-                    },
-                    switchAudio: (enabled) => {
-                        if (dataChannel) {
-                            dataChannel.send(JSON.stringify({
-                                type: 'AUD',
-                                data: enabled ? 'on' : 'off'
-                            }));
-                            logMessage(`Audio channel ${enabled ? 'enabled' : 'disabled'}`);
-                        }
-                    },
-                    disableTrafficSaving: async (disabled) => {
-                        if (dataChannel) {
-                            const data = {
-                                type: 'RTC_INNER_REQ',
-                                data: {
-                                    req_type: 'disable_traffic_saving',
-                                    instruction: disabled ? 'on' : 'off'
-                                }
-                            };
-                            dataChannel.send(JSON.stringify(data));
-                            logMessage(`Traffic saving ${disabled ? 'disabled' : 'enabled'}`);
-                        }
-                    }
-                };
-
-                const result = await eval(`(async () => { 
-                    with (context) { 
-                        ${code}
-                    } 
-                })()`);
-                
-                output.textContent = JSON.stringify(result, null, 2);
-            } catch (error) {
-                output.textContent = `Error: ${error.message}`;
-                logMessage(error.message, 'error');
-            }
-        }
-
-        // Connect to WebRTC
-        async function connect() {
-            try {
-                socket = io('http://localhost:3000');
-                
-                peerConnection = new RTCPeerConnection(configuration);
-                
-                dataChannel = peerConnection.createDataChannel('data');
-                setupDataChannel(dataChannel);
-
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('ice-candidate', event.candidate);
-                    }
-                };
-
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                socket.emit('offer', offer);
-
-                socket.on('answer', async (answer) => {
-                    await peerConnection.setRemoteDescription(answer);
-                });
-
-                socket.on('ice-candidate', async (candidate) => {
-                    try {
-                        await peerConnection.addIceCandidate(candidate);
-                    } catch (error) {
-                        logMessage('Error adding ICE candidate: ' + error.message, 'error');
-                    }
-                });
-
-                connectBtn.disabled = true;
-                logMessage('Connecting to WebRTC server...');
-            } catch (error) {
-                logMessage('Connection error: ' + error.message, 'error');
-                status.textContent = 'Connection failed';
-                status.className = 'disconnected';
-            }
-        }
-
-        function setupDataChannel(channel) {
-            channel.onopen = () => {
-                logMessage('Data channel opened');
-                status.textContent = 'Connected';
-                status.className = 'connected';
-                videoBtn.disabled = false;
-                audioBtn.disabled = false;
-                trafficBtn.disabled = false;
-            };
-
-            channel.onclose = () => {
-                logMessage('Data channel closed');
-                status.textContent = 'Disconnected';
-                status.className = 'disconnected';
-                videoBtn.disabled = true;
-                audioBtn.disabled = true;
-                trafficBtn.disabled = true;
-            };
-
-            channel.onmessage = (event) => {
-                logMessage('Received: ' + event.data);
-            };
-        }
-
-        // Event listeners
-        connectBtn.addEventListener('click', connect);
-        document.getElementById('addCell').addEventListener('click', createCell);
-        
-        videoBtn.addEventListener('click', () => {
-            const enabled = videoBtn.textContent === 'Enable Video';
-            context.switchVideo(enabled);
-            videoBtn.textContent = enabled ? 'Disable Video' : 'Enable Video';
-        });
-        
-        audioBtn.addEventListener('click', () => {
-            const enabled = audioBtn.textContent === 'Enable Audio';
-            context.switchAudio(enabled);
-            audioBtn.textContent = enabled ? 'Disable Audio' : 'Enable Audio';
-        });
-        
-        trafficBtn.addEventListener('click', () => {
-            const disabled = trafficBtn.textContent === 'Traffic Saving';
-            context.disableTrafficSaving(disabled);
-            trafficBtn.textContent = disabled ? 'Enable Traffic' : 'Traffic Saving';
-        });
-
-        // Create initial cell
-        createCell();
-    </script>
+    <h1>G1 WebRTC Observable Client</h1>
+    <div id="notebook"></div>
 </body>
-</html> 
+</html>
