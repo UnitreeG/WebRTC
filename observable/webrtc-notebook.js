@@ -49,46 +49,40 @@ button:disabled {
   border-radius: 4px;
   font-family: Monaco, monospace;
   font-size: 0.9em;
+  white-space: pre-wrap;
 }
 </style>`
 
-// Initialize state
-const state = {
+// Configuration
+const config = {
+  serverUrl: 'http://192.168.8.181',  // Robot's IP address
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' }
+  ]
+};
+
+// State management
+let state = {
   peerConnection: null,
-  dataChannel: null,
-  socket: null
+  dataChannel: null
+};
+
+// Create the main view
+function createView() {
+  return html`
+    <div class="webrtc-container">
+      <div id="status" class="disconnected">Disconnected</div>
+      <div id="log"></div>
+    </div>
+  `;
 }
 
-// Create UI container
-const ui = html`
-  <div class="webrtc-container">
-    <div class="controls">
-      <button id="connect">Connect</button>
-      <button id="video" disabled>Enable Video</button>
-      <button id="audio" disabled>Enable Audio</button>
-      <button id="traffic" disabled>Traffic Saving</button>
-    </div>
-    <div id="status" class="disconnected">Disconnected</div>
-    <div id="log" class="log"></div>
-  </div>
-`
-
-// Get UI elements
-const elements = ({
-  status: ui.querySelector("#status"),
-  log: ui.querySelector("#log"),
-  connectBtn: ui.querySelector("#connect"),
-  videoBtn: ui.querySelector("#video"),
-  audioBtn: ui.querySelector("#audio"),
-  trafficBtn: ui.querySelector("#traffic")
-})
-
-// Logging function
 function logMessage(msg, type = 'info') {
   const entry = document.createElement('div');
   entry.textContent = `${new Date().toLocaleTimeString()} [${type}] ${msg}`;
-  elements.log.appendChild(entry);
-  elements.log.scrollTop = elements.log.scrollHeight;
+  document.querySelector('#log').appendChild(entry);
+  const log = document.querySelector('#log');
+  log.scrollTop = log.scrollHeight;
 }
 
 // Override console methods to capture logs
@@ -139,11 +133,8 @@ const setupDataChannel = function(channel) {
 
   channel.onclose = function() {
     logMessage('Data channel closed');
-    elements.status.textContent = 'Disconnected';
-    elements.status.className = 'disconnected';
-    elements.videoBtn.disabled = true;
-    elements.audioBtn.disabled = true;
-    elements.trafficBtn.disabled = true;
+    document.querySelector('#status').textContent = 'Disconnected';
+    document.querySelector('#status').className = 'disconnected';
   };
 
   channel.onmessage = function(event) {
@@ -152,11 +143,8 @@ const setupDataChannel = function(channel) {
     if (message.type === 'validation') {
       if (message.data === 'Validation Ok.') {
         logMessage('Connection validated successfully');
-        elements.status.textContent = 'Connected';
-        elements.status.className = 'connected';
-        elements.videoBtn.disabled = false;
-        elements.audioBtn.disabled = false;
-        elements.trafficBtn.disabled = false;
+        document.querySelector('#status').textContent = 'Connected';
+        document.querySelector('#status').className = 'connected';
         
         // Query robot info after successful validation
         sendRobotInfoRequest();
@@ -167,7 +155,7 @@ const setupDataChannel = function(channel) {
     } else if (message.type === 'RTC_REPORT' && message.data.req_type === 'get_robot_info') {
       const info = message.data.info;
       logMessage('Connected to ' + info.model + ' (Version: ' + info.version + ')');
-      elements.status.textContent = 'Connected to ' + info.model;
+      document.querySelector('#status').textContent = 'Connected to ' + info.model;
     } else {
       logMessage('Received: ' + JSON.stringify(message));
     }
@@ -189,16 +177,33 @@ function sendRobotInfoRequest() {
 const webrtc = {
   async connect() {
     try {
-      const response = await fetch('http://localhost:3000/webrtc/offer', {
+      logMessage('Connecting to robot...', 'info');
+      
+      const response = await fetch(`${config.serverUrl}/webrtc/offer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           type: 'offer',
-          sdp: 'v=0\r\n...' // Your SDP offer here
+          sdp: 'v=0\r\no=- ' + Date.now() + ' 2 IN IP4 127.0.0.1\r\n' +
+               's=-\r\nt=0 0\r\na=group:BUNDLE 0\r\n' +
+               'a=msid-semantic: WMS\r\n' +
+               'm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n' +
+               'c=IN IP4 0.0.0.0\r\n' +
+               'a=ice-ufrag:' + Math.random().toString(36).substr(2, 4) + '\r\n' +
+               'a=ice-pwd:' + Math.random().toString(36).substr(2, 24) + '\r\n' +
+               'a=fingerprint:sha-256 ' + Array.from({length: 32}, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(':') + '\r\n' +
+               'a=setup:actpass\r\n' +
+               'a=mid:0\r\n' +
+               'a=sctp-port:5000\r\n' +
+               'a=max-message-size:262144\r\n'
         })
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
       
@@ -206,18 +211,36 @@ const webrtc = {
         throw new Error('Connection rejected - another client is already connected');
       }
 
-      state.peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      });
+      state.peerConnection = new RTCPeerConnection({ iceServers: config.iceServers });
+
+      // Set up ICE candidate handling
+      state.peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          fetch(`${config.serverUrl}/webrtc/candidate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              candidate: event.candidate
+            })
+          }).catch(error => {
+            logMessage(`Failed to send ICE candidate: ${error.message}`, 'error');
+          });
+        }
+      };
 
       state.dataChannel = state.peerConnection.createDataChannel('data');
       state.dataChannel.validationKey = data.validationKey;
       setupDataChannel(state.dataChannel);
 
       await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data));
-      logMessage('Connecting...');
+      const offer = await state.peerConnection.createOffer();
+      await state.peerConnection.setLocalDescription(offer);
+      
+      logMessage('WebRTC connection established', 'info');
     } catch (error) {
-      logMessage(error.message, 'error');
+      logMessage(`Connection error: ${error.message}`, 'error');
     }
   },
 
@@ -267,12 +290,18 @@ const webrtc = {
   }
 };
 
-// Export notebook cells
-export function initialize() {
-  document.body.innerHTML = ui.toString();
-  // Connect automatically on page load
-  webrtc.connect();
-}
+// Export Observable notebook cells
+export default function define(runtime, observer) {
+  const main = runtime.module();
 
-// Auto-initialize when the module loads
-initialize();
+  // Create and display the view
+  main.variable(observer()).define([], createView);
+
+  // Start connection after view is created
+  main.variable(observer()).define(["Promises"], async function(Promises) {
+    await Promises.delay(100); // Give the view time to render
+    await webrtc.connect();
+  });
+
+  return main;
+}
