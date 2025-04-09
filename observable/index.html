@@ -4,10 +4,10 @@
     <title>G1 WebRTC Observable Client</title>
     <script type="module">
         import {Runtime, Inspector} from "https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js";
-        import {Generators, Library} from "https://cdn.jsdelivr.net/npm/@observablehq/stdlib@5/dist/stdlib.js";
+        import {Library} from "https://cdn.jsdelivr.net/npm/@observablehq/stdlib@5/dist/stdlib.js";
         
         // Create the runtime with standard library
-        const runtime = new Runtime(new Library());
+        const runtime = new Runtime();
         
         // Create a new notebook
         const notebook = runtime.module();
