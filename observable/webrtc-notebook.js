@@ -1,8 +1,7 @@
 // Title: G1 WebRTC Observable Client
 // Author: @dcmcshan
 
-// Import dependencies
-import {html} from "@observablehq/stdlib"
+import {html} from "https://cdn.jsdelivr.net/npm/@observablehq/stdlib@5/dist/stdlib.js";
 
 // Define styles
 styles = html`<style>
@@ -70,6 +69,37 @@ let state = {
 // Create the main view
 function createView() {
   return html`
+    <style>
+      .webrtc-container {
+        font-family: -apple-system, system-ui, sans-serif;
+        padding: 1em;
+      }
+      #status {
+        padding: 0.5em;
+        margin-bottom: 1em;
+        border-radius: 4px;
+        text-align: center;
+      }
+      .connected {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .disconnected {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      #log {
+        height: 200px;
+        overflow-y: auto;
+        padding: 0.5em;
+        background: #1f2937;
+        color: #f9fafb;
+        border-radius: 4px;
+        font-family: Monaco, monospace;
+        font-size: 0.9em;
+        white-space: pre-wrap;
+      }
+    </style>
     <div class="webrtc-container">
       <div id="status" class="disconnected">Disconnected</div>
       <div id="log"></div>
