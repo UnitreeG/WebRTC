@@ -1,21 +1,31 @@
-# Observable WebRTC Client with Go2 API Server
+# WebRTC
 
-This project implements a WebRTC client using Observable and a server that implements the Go2 WebRTC API. The client can be served via GitHub Pages, while the server runs locally for development.
+## G1 WebRTC Observable Client
+
+A modern WebRTC client implementation using Observable HQ's runtime, designed to work with the Go2 WebRTC API. This client provides a clean, intuitive interface for WebRTC connections and real-time communication.
 
 ## Project Structure
 
 ```
-observable-webrtc/
+├── index.html        # Observable WebRTC client (served via GitHub Pages)
 ├── server/           # WebRTC server implementation
 │   ├── package.json
 │   └── server.js
-└── client/          # Observable client
-    └── index.html
+└── go2_webrtc_connect/ # Reference implementation
 ```
 
-## Setup
+## Features
 
-### Server Setup
+- Modern, responsive UI
+- WebRTC peer-to-peer connection
+- Real-time data channel communication
+- Connection status indicators
+- Message history display
+- Built with Observable's runtime
+
+## Getting Started
+
+### Running the Server
 
 1. Navigate to the server directory:
    ```bash
@@ -34,45 +44,35 @@ observable-webrtc/
 
 The server will run on `http://localhost:3000` by default.
 
-### Client Setup
+### Using the Client
 
-The client is a static HTML file that can be served via GitHub Pages. To deploy:
+The client is hosted on GitHub Pages and can be accessed at [https://unitreeg.github.io/WebRTC/](https://unitreeg.github.io/WebRTC/)
 
-1. Create a new GitHub repository
-2. Push the contents of the `client` directory to the repository
-3. Enable GitHub Pages in the repository settings
-4. Set the source to the main branch
-
-## Usage
-
-1. Start the server locally
-2. Open the client in a web browser (either locally or via GitHub Pages)
-3. Click the "Connect" button to establish a WebRTC connection
-4. Once connected, you can send messages using the "Send Message" button
-
-## Features
-
-- WebRTC peer-to-peer connection
-- Real-time data channel communication
-- Connection status indicators
-- Message history display
-- Simple and intuitive UI
+To use the client:
+1. Start the local server (see above)
+2. Open the client in your web browser
+3. Click "Connect" to establish a WebRTC connection
+4. Once connected, use "Send Message" to test the data channel
 
 ## Development
 
-To modify the client:
-1. Edit the `client/index.html` file
-2. Test locally by opening the file in a browser
-3. Push changes to GitHub to update the deployed version
+### Client Development
+- Edit `index.html` to modify the client
+- Test locally by opening the file in a browser
+- Push changes to GitHub to update the deployed version
 
-To modify the server:
-1. Edit the `server/server.js` file
-2. Restart the server to apply changes
-3. Test with the client
+### Server Development
+- Edit files in the `server/` directory
+- Restart the server to apply changes
+- Test with the client
 
-## Notes
+## Technical Details
 
-- The server uses Socket.IO for signaling
-- STUN servers are used for NAT traversal
-- The client is built with Observable's runtime
-- The server implements basic WebRTC functionality similar to the Go2 API 
+- Uses Socket.IO for WebRTC signaling
+- Implements STUN for NAT traversal
+- Built on Observable's runtime for reactive programming
+- Compatible with Go2 WebRTC API specification
+
+## Reference Implementation
+
+The `go2_webrtc_connect/` directory contains the reference implementation from which this client was derived. It provides examples and documentation for the full Go2 WebRTC API. 
