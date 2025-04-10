@@ -261,7 +261,7 @@
             try {
                 // Get selected connection mode
                 const mode = document.querySelector('input[name="connection-mode"]:checked').value;
-                let robotIP = mode === 'ap' ? '192.168.8.1' : document.getElementById('robotIpInput').value;
+                const robotIP = mode === 'ap' ? '192.168.8.1' : document.getElementById('robotIpInput').value;
                 
                 log(`Initializing WebRTC connection in ${mode.toUpperCase()} mode to robot at ${robotIP}...`);
                 
@@ -339,14 +339,12 @@
                 log('Offer created');
                 log(`SDP offer details: ${offer.sdp}`);
                 
-                // Send offer directly to robot via HTTP request
-                const robotIP = mode === 'ap' ? '192.168.8.1' : document.getElementById('robotIpInput').value;
-                
-                // Try direct connection to robot without external signaling server
+                // Try all possible connection methods
                 try {
+                    // First try direct connection to robot
                     log(`Attempting direct connection to robot at ${robotIP}`);
                     
-                    const answer = {
+                    const directAnswer = {
                         token: "direct-connection",
                         id: mode === 'ap' ? "AP_direct" : "STA_localNetwork",
                         type: "offer",
@@ -355,29 +353,95 @@
                     };
                     
                     log(`Sending offer directly to robot at ${robotIP} (${mode.toUpperCase()} mode)`);
-                    log(`Connection ID: "${answer.id}"`);
+                    log(`Connection ID: "${directAnswer.id}"`);
                     log(`Token used: "direct-connection"`);
                     
-                    // Try direct HTTP request to the robot
-                    const response = await fetch(`http://${robotIP}:8080/webrtc/offer`, {
+                    // Try direct HTTP request to the robot at different ports
+                    let directSuccess = false;
+                    let directError = null;
+                    
+                    // Try different ports and endpoints that might be used by the robot
+                    const directEndpoints = [
+                        { port: 8080, path: '/webrtc/offer' },
+                        { port: 8081, path: '/offer' },
+                        { port: 80, path: '/webrtc/offer' },
+                        { port: 443, path: '/webrtc/offer' }
+                    ];
+                    
+                    for (const endpoint of directEndpoints) {
+                        try {
+                            log(`Trying direct connection to http://${robotIP}:${endpoint.port}${endpoint.path}`);
+                            
+                            const directResponse = await fetch(`http://${robotIP}:${endpoint.port}${endpoint.path}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(directAnswer),
+                                // Short timeout to fail fast
+                                signal: AbortSignal.timeout(3000)
+                            });
+                            
+                            if (!directResponse.ok) {
+                                throw new Error(`Direct connection failed with status: ${directResponse.status}`);
+                            }
+                            
+                            const directData = await directResponse.json();
+                            log('Received answer directly from robot');
+                            log(`SDP answer details: ${directData.sdp}`);
+                            
+                            // Set remote description from answer
+                            await peerConnection.setRemoteDescription(directData);
+                            log(`WebRTC connection established through direct signaling on port ${endpoint.port}`);
+                            
+                            directSuccess = true;
+                            setConnected(true);
+                            startHeartbeat();
+                            setTimeout(requestRobotInfo, 2000);
+                            break;
+                        } catch (err) {
+                            log(`Failed on endpoint ${endpoint.port}${endpoint.path}: ${err.message}`);
+                            directError = err;
+                        }
+                    }
+                    
+                    if (directSuccess) {
+                        return; // Exit if direct connection was successful
+                    }
+                    
+                    // If direct connection fails, try through local signaling server
+                    log('Direct connection methods failed. Trying local signaling server...');
+                    
+                    const serverAnswer = {
+                        token: "direct-connection",
+                        id: mode === 'ap' ? "AP_direct" : "STA_localNetwork",
+                        type: "offer",
+                        ip: robotIP,
+                        sdp: peerConnection.localDescription.sdp
+                    };
+                    
+                    // Try signaling server on port 9991 (observable server)
+                    log(`Trying signaling server at port 9991`);
+                    
+                    const serverResponse = await fetch(`http://${window.location.hostname}:9991/offer`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify(answer),
+                        body: JSON.stringify(serverAnswer),
                     });
                     
-                    if (!response.ok) {
-                        throw new Error(`Direct connection failed with status: ${response.status}`);
+                    if (!serverResponse.ok) {
+                        throw new Error(`Signaling server failed with status: ${serverResponse.status}`);
                     }
                     
-                    const data = await response.json();
-                    log('Received answer directly from robot');
-                    log(`SDP answer details: ${data.sdp}`);
+                    const serverData = await serverResponse.json();
+                    log('Received answer from signaling server');
+                    log(`SDP answer details: ${serverData.sdp}`);
                     
                     // Set remote description from answer
-                    await peerConnection.setRemoteDescription(data);
-                    log('WebRTC connection established through direct signaling');
+                    await peerConnection.setRemoteDescription(serverData);
+                    log('WebRTC connection established via signaling server');
                     
                     setConnected(true);
                     startHeartbeat();
@@ -385,54 +449,8 @@
                     // Request robot information after connection
                     setTimeout(requestRobotInfo, 2000);
                     
-                } catch (directError) {
-                    // If direct connection fails, try through local signaling server
-                    logError(`Direct connection failed: ${directError.message}`);
-                    log('Falling back to local signaling server...');
-                    
-                    try {
-                        const answer = {
-                            token: "direct-connection",
-                            id: mode === 'ap' ? "AP_direct" : "STA_localNetwork",
-                            type: "offer",
-                            ip: robotIP,
-                            sdp: peerConnection.localDescription.sdp
-                        };
-                        
-                        // First try port 9991 (observable server)
-                        const serverPort = 9991;
-                        log(`Trying signaling server at port ${serverPort}`);
-                        
-                        const response = await fetch(`http://${window.location.hostname}:${serverPort}/offer`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(answer),
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`Signaling failed with status: ${response.status}`);
-                        }
-                        
-                        const data = await response.json();
-                        log('Received answer from signaling server');
-                        log(`SDP answer details: ${data.sdp}`);
-                        
-                        // Set remote description from answer
-                        await peerConnection.setRemoteDescription(data);
-                        log('WebRTC connection established via signaling server');
-                        
-                        setConnected(true);
-                        startHeartbeat();
-                        
-                        // Request robot information after connection
-                        setTimeout(requestRobotInfo, 2000);
-                        
-                    } catch (signalingError) {
-                        // If both methods fail, throw combined error
-                        throw new Error(`All connection methods failed. Direct: ${directError.message}, Signaling: ${signalingError.message}`);
-                    }
+                } catch (error) {
+                    throw new Error(`All connection methods failed: ${error.message}`);
                 }
                 
             } catch (error) {
