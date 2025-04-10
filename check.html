@@ -167,6 +167,34 @@
             <p><strong>Alternative for Node.js users:</strong> If you already have Node.js installed, you can simply run:<br>
             <code>npx peer --port 8081</code></p>
         </div>
+        
+        <div id="securityToken" style="margin-top: 20px; padding: 15px; background-color: #fff8dc; border-radius: 5px; border: 1px solid #ffe4b5;">
+            <h3>About Security Tokens</h3>
+            <p><strong>Note:</strong> Connecting without a security token is possible and may work for a single connection. However, to use multiple clients simultaneously (like this page and the phone app), you'll need a valid security token.</p>
+            
+            <details>
+                <summary><strong>How to obtain a security token</strong> (click to expand)</summary>
+                <div style="padding: 10px; margin-top: 10px; background-color: #f9f9f9; border-radius: 4px;">
+                    <p>The easiest way is to capture network traffic between the robot and your phone:</p>
+                    <ol>
+                        <li>Run an HTTP proxy (like tinyproxy) on your computer</li>
+                        <li>Set your computer's IP and port as HTTP proxy on your phone</li>
+                        <li>Use a network sniffer like Wireshark or ngrep to capture traffic on port 8081</li>
+                        <li>Connect your phone to the robot via the official app</li>
+                        <li>Look for the token in the captured network traffic</li>
+                    </ol>
+                    <p>The token appears in request payloads like this:</p>
+                    <pre style="background-color: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto;">
+{
+    "token": "eyJ0eXAiOizI1NiJtlbiI[..]CI6MTcwODAxMzUwOX0.hiWOd9tNCIPzOOLNA",
+    "sdp": "v=0\r\no=- ",
+    "id": "STA_localNetwork",
+    "type": "offer"
+}
+                    </pre>
+                </div>
+            </details>
+        </div>
     </div>
 
     <script>
