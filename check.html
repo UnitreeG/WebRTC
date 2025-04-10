@@ -84,6 +84,27 @@
             border-radius: 4px;
             display: none;
         }
+        .connection-options {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        .mode-toggle {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .mode-toggle label {
+            cursor: pointer;
+        }
+        .sta-options input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 200px;
+        }
     </style>
 </head>
 <body>
@@ -101,13 +122,46 @@
         
         <div id="status" class="status disconnected">Status: Disconnected</div>
         
-        <div>
+        <div class="connection-options">
+            <div class="mode-toggle">
+                <label>
+                    <input type="radio" name="connection-mode" value="ap" checked> AP Mode (Direct Connection)
+                </label>
+                <label>
+                    <input type="radio" name="connection-mode" value="sta"> STA Mode (Network Connection)
+                </label>
+            </div>
+            <div class="sta-options" style="display: none; margin-top: 10px;">
+                <label>Robot IP:
+                    <input type="text" id="robotIpInput" value="192.168.8.181" placeholder="192.168.8.181">
+                </label>
+            </div>
             <button id="checkBtn">Check Connection</button>
         </div>
         
         <div id="errors"></div>
         <div id="robotInfo"></div>
         <div id="log"></div>
+        
+        <div id="gitHubLogging" style="margin-top: 20px;">
+            <h3>Log Results to GitHub</h3>
+            <div style="margin-bottom: 10px;">
+                <label for="githubRepo">GitHub Repository URL:</label>
+                <input type="text" id="githubRepo" style="width: 100%; padding: 5px;" 
+                       placeholder="https://github.com/username/repository">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label for="githubToken">GitHub Personal Access Token:</label>
+                <input type="password" id="githubToken" style="width: 100%; padding: 5px;" 
+                       placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label for="issueTitle">Issue Title:</label>
+                <input type="text" id="issueTitle" style="width: 100%; padding: 5px;" 
+                       value="WebRTC Connection Log">
+            </div>
+            <button id="logToGitHubBtn" disabled>Create GitHub Issue with Logs</button>
+        </div>
     </div>
 
     <script>
@@ -164,8 +218,15 @@
         // Function to log messages
         function log(message) {
             const logDiv = document.getElementById('log');
-            logDiv.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `${timestamp} - ${message}<br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Add to stored logs for GitHub reporting
+            if (window.connectionLogs === undefined) {
+                window.connectionLogs = [];
+            }
+            window.connectionLogs.push(`${timestamp} - ${message}`);
         }
         
         // Make the log function available globally
@@ -175,16 +236,34 @@
         function setConnected(connected) {
             const status = document.getElementById('status');
             const checkBtn = document.getElementById('checkBtn');
+            const logToGitHubBtn = document.getElementById('logToGitHubBtn');
             
             status.className = connected ? 'status connected' : 'status disconnected';
             status.textContent = `Status: ${connected ? 'Connected' : 'Disconnected'}`;
             checkBtn.disabled = connected;
+            logToGitHubBtn.disabled = !connected;
         }
+        
+        // Update UI based on connection mode selection
+        document.querySelectorAll('input[name="connection-mode"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const staOptions = document.querySelector('.sta-options');
+                if (this.value === 'sta') {
+                    staOptions.style.display = 'block';
+                } else {
+                    staOptions.style.display = 'none';
+                }
+            });
+        });
         
         // WebRTC connection setup
         async function connect() {
             try {
-                log('Initializing WebRTC connection...');
+                // Get selected connection mode
+                const mode = document.querySelector('input[name="connection-mode"]:checked').value;
+                let robotIP = mode === 'ap' ? '192.168.8.1' : document.getElementById('robotIpInput').value;
+                
+                log(`Initializing WebRTC connection in ${mode.toUpperCase()} mode to robot at ${robotIP}...`);
                 
                 // Create peer connection
                 peerConnection = new RTCPeerConnection({
@@ -199,12 +278,46 @@
                         peerConnection.iceConnectionState === 'disconnected' || 
                         peerConnection.iceConnectionState === 'closed') {
                         logError(`ICE connection ${peerConnection.iceConnectionState}`);
+                        
+                        // If AP mode failed, try STA mode automatically
+                        if (mode === 'ap' && peerConnection.iceConnectionState === 'failed') {
+                            log('AP mode connection failed. Will try STA mode...');
+                            
+                            // Clean up current connection
+                            if (dataChannel) {
+                                dataChannel.close();
+                                dataChannel = null;
+                            }
+                            if (peerConnection) {
+                                peerConnection.close();
+                                peerConnection = null;
+                            }
+                            
+                            // Switch to STA mode
+                            document.querySelector('input[value="sta"]').checked = true;
+                            document.querySelector('.sta-options').style.display = 'block';
+                            
+                            // Wait a moment before retrying
+                            setTimeout(() => {
+                                log('Retrying connection in STA mode...');
+                                connect();
+                            }, 1000);
+                        }
                     }
                 };
                 
                 // Add signaling state change listener
                 peerConnection.onsignalingstatechange = () => {
                     log(`Signaling state: ${peerConnection.signalingState}`);
+                };
+                
+                // Log ICE candidates for debugging
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        log(`ICE candidate: ${JSON.stringify(event.candidate)}`);
+                    } else {
+                        log('ICE gathering complete');
+                    }
                 };
                 
                 // Add ICE candidate error handler
@@ -224,20 +337,20 @@
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
                 log('Offer created');
+                log(`SDP offer details: ${offer.sdp}`);
                 
                 // Send offer to robot via signaling server
-                // For AP mode, we use the default IP 192.168.8.1
-                const robotIP = '192.168.8.1';
-                
                 const answer = {
                     token: "direct-connection",
-                    id: "STA_localNetwork",
+                    id: mode === 'ap' ? "AP_direct" : "STA_localNetwork",
                     type: "offer",
                     ip: robotIP,
                     sdp: peerConnection.localDescription.sdp
                 };
                 
-                log(`Sending offer to robot at ${robotIP}`);
+                log(`Sending offer to robot at ${robotIP} (${mode.toUpperCase()} mode)`);
+                log(`Connection ID: "${answer.id}"`);
+                log(`Token used: "direct-connection"`);
                 
                 // Send offer through local signaling server
                 // Note: In production, ensure proper signaling server is running
@@ -255,6 +368,7 @@
                 
                 const data = await response.json();
                 log('Received answer from signaling server');
+                log(`SDP answer details: ${data.sdp}`);
                 
                 // Set remote description from answer
                 await peerConnection.setRemoteDescription(data);
@@ -310,14 +424,19 @@
             try {
                 const data = JSON.parse(message);
                 
+                // Log the entire message for debugging
+                logError(`Complete message received: ${JSON.stringify(data)}`, 'debug');
+                
                 // Handle validation message
                 if (data.type === "VALIDATION") {
                     if (data.data === "Validation Ok.") {
                         log("Validation successful");
                     } else {
-                        log(`Sending validation key: ${data.data}`);
+                        const validationKey = data.data;
+                        log(`Received validation challenge: ${validationKey}`);
                         // Encrypt the validation key using MD5
-                        const encryptedKey = md5(data.data);
+                        const encryptedKey = md5(validationKey);
+                        log(`Encrypted validation key (MD5): ${encryptedKey}`);
                         publishMessage("", encryptedKey, "VALIDATION");
                     }
                 }
@@ -325,10 +444,14 @@
                 // Handle robot info message
                 if (data.type === "MSG" && data.data && data.data.header) {
                     const statusCode = data.data.header.status?.code;
+                    const apiId = data.data.header?.identity?.api_id;
+                    
+                    log(`Received response for API ID: ${apiId}, status code: ${statusCode}`);
+                    
                     if (statusCode === 0) {
                         displayRobotInfo(data);
                     } else if (statusCode !== undefined) {
-                        logError(`API error: Status code ${statusCode}`);
+                        logError(`API error: Status code ${statusCode} for API ID ${apiId}`);
                     }
                 }
                 
@@ -426,7 +549,16 @@
                         topic: topic,
                         data: data,
                     };
-                    log(`Sending message: ${JSON.stringify(msg)}`);
+                    
+                    // Log messages with different levels of detail based on type
+                    if (channelType === "VALIDATION") {
+                        log(`Sending validation response: ${JSON.stringify(msg)}`);
+                    } else if (channelType === "HEARTBEAT") {
+                        // Don't log heartbeats to avoid cluttering the log
+                    } else {
+                        log(`Sending message: ${JSON.stringify(msg)}`);
+                    }
+                    
                     dataChannel.send(JSON.stringify(msg));
                     return true;
                 }
@@ -615,8 +747,83 @@
             return hex_md5(string);
         }
         
+        // Function to create GitHub issue with logs
+        async function createGitHubIssue() {
+            try {
+                const repoUrl = document.getElementById('githubRepo').value;
+                const token = document.getElementById('githubToken').value;
+                const title = document.getElementById('issueTitle').value;
+                
+                if (!repoUrl || !token) {
+                    logError("GitHub repository URL and token are required");
+                    return;
+                }
+                
+                // Extract owner and repo from URL
+                const urlParts = repoUrl.split('/');
+                const owner = urlParts[urlParts.length - 2];
+                const repo = urlParts[urlParts.length - 1];
+                
+                // Prepare log content
+                let logContent = "# WebRTC Connection Log\n\n";
+                logContent += "## Robot Information\n";
+                
+                // Add robot info if available
+                const robotInfoDiv = document.getElementById('robotInfo');
+                if (robotInfoDiv.style.display !== 'none') {
+                    logContent += "```\n" + robotInfoDiv.innerText + "\n```\n\n";
+                } else {
+                    logContent += "_No robot information available_\n\n";
+                }
+                
+                // Add connection logs
+                logContent += "## Connection Logs\n```\n";
+                logContent += window.connectionLogs.join('\n');
+                logContent += "\n```\n\n";
+                
+                // Add error logs if any
+                const errorsDiv = document.getElementById('errors');
+                if (errorsDiv.style.display !== 'none') {
+                    logContent += "## Errors\n```\n";
+                    logContent += errorsDiv.innerText;
+                    logContent += "\n```\n";
+                }
+                
+                // Prepare request to GitHub API
+                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        body: logContent,
+                        labels: ['WebRTC', 'robot-log']
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`GitHub API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log(`GitHub issue created successfully: ${data.html_url}`);
+                
+                // Create link to the issue
+                const linkElem = document.createElement('div');
+                linkElem.innerHTML = `<a href="${data.html_url}" target="_blank">View Issue on GitHub</a>`;
+                document.getElementById('gitHubLogging').appendChild(linkElem);
+                
+            } catch (error) {
+                logError(`Failed to create GitHub issue: ${error.message}`);
+            }
+        }
+        
         // Event listeners
         document.getElementById('checkBtn').addEventListener('click', connect);
+        document.getElementById('logToGitHubBtn').addEventListener('click', createGitHubIssue);
     </script>
 </body>
 </html> 
