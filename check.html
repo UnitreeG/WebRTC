@@ -143,24 +143,29 @@
         <div id="robotInfo"></div>
         <div id="log"></div>
         
-        <div id="gitHubLogging" style="margin-top: 20px;">
-            <h3>Log Results to GitHub</h3>
-            <div style="margin-bottom: 10px;">
-                <label for="githubRepo">GitHub Repository URL:</label>
-                <input type="text" id="githubRepo" style="width: 100%; padding: 5px;" 
-                       placeholder="https://github.com/username/repository">
-            </div>
-            <div style="margin-bottom: 10px;">
-                <label for="githubToken">GitHub Personal Access Token:</label>
-                <input type="password" id="githubToken" style="width: 100%; padding: 5px;" 
-                       placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-            </div>
-            <div style="margin-bottom: 10px;">
-                <label for="issueTitle">Issue Title:</label>
-                <input type="text" id="issueTitle" style="width: 100%; padding: 5px;" 
-                       value="WebRTC Connection Log">
-            </div>
-            <button id="logToGitHubBtn" disabled>Create GitHub Issue with Logs</button>
+        <div id="serverDownload" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #ddd;">
+            <h3>WebRTC Signaling Server</h3>
+            <p>To connect to the robot, you need to run the PeerJS signaling server:</p>
+            <ol>
+                <li>Download the PeerJS server executable for your platform:
+                    <ul>
+                        <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-win.exe" download>Windows Server (peer-win.exe)</a></li>
+                        <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-macos" download>MacOS Server (peer-macos)</a></li>
+                        <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-linux" download>Linux Server (peer-linux)</a></li>
+                    </ul>
+                </li>
+                <li>Run the downloaded executable with port 8081:
+                    <ul>
+                        <li>Windows: Double-click the .exe file or run <code>peer-win.exe --port 8081</code> in Command Prompt</li>
+                        <li>macOS/Linux: First make the file executable with <code>chmod +x peer-macos</code> then run <code>./peer-macos --port 8081</code></li>
+                    </ul>
+                </li>
+                <li>Keep the server running in the background while using this page</li>
+                <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 8081"</li>
+                <li>Click "Check Connection" above to connect to your robot</li>
+            </ol>
+            <p><strong>Alternative for Node.js users:</strong> If you already have Node.js installed, you can simply run:<br>
+            <code>npx peer --port 8081</code></p>
         </div>
     </div>
 
@@ -236,12 +241,10 @@
         function setConnected(connected) {
             const status = document.getElementById('status');
             const checkBtn = document.getElementById('checkBtn');
-            const logToGitHubBtn = document.getElementById('logToGitHubBtn');
             
             status.className = connected ? 'status connected' : 'status disconnected';
             status.textContent = `Status: ${connected ? 'Connected' : 'Disconnected'}`;
             checkBtn.disabled = connected;
-            logToGitHubBtn.disabled = !connected;
         }
         
         // Update UI based on connection mode selection
@@ -835,83 +838,8 @@
             return hex_md5(string);
         }
         
-        // Function to create GitHub issue with logs
-        async function createGitHubIssue() {
-            try {
-                const repoUrl = document.getElementById('githubRepo').value;
-                const token = document.getElementById('githubToken').value;
-                const title = document.getElementById('issueTitle').value;
-                
-                if (!repoUrl || !token) {
-                    logError("GitHub repository URL and token are required");
-                    return;
-                }
-                
-                // Extract owner and repo from URL
-                const urlParts = repoUrl.split('/');
-                const owner = urlParts[urlParts.length - 2];
-                const repo = urlParts[urlParts.length - 1];
-                
-                // Prepare log content
-                let logContent = "# WebRTC Connection Log\n\n";
-                logContent += "## Robot Information\n";
-                
-                // Add robot info if available
-                const robotInfoDiv = document.getElementById('robotInfo');
-                if (robotInfoDiv.style.display !== 'none') {
-                    logContent += "```\n" + robotInfoDiv.innerText + "\n```\n\n";
-                } else {
-                    logContent += "_No robot information available_\n\n";
-                }
-                
-                // Add connection logs
-                logContent += "## Connection Logs\n```\n";
-                logContent += window.connectionLogs.join('\n');
-                logContent += "\n```\n\n";
-                
-                // Add error logs if any
-                const errorsDiv = document.getElementById('errors');
-                if (errorsDiv.style.display !== 'none') {
-                    logContent += "## Errors\n```\n";
-                    logContent += errorsDiv.innerText;
-                    logContent += "\n```\n";
-                }
-                
-                // Prepare request to GitHub API
-                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        title: title,
-                        body: logContent,
-                        labels: ['WebRTC', 'robot-log']
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`GitHub API error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                log(`GitHub issue created successfully: ${data.html_url}`);
-                
-                // Create link to the issue
-                const linkElem = document.createElement('div');
-                linkElem.innerHTML = `<a href="${data.html_url}" target="_blank">View Issue on GitHub</a>`;
-                document.getElementById('gitHubLogging').appendChild(linkElem);
-                
-            } catch (error) {
-                logError(`Failed to create GitHub issue: ${error.message}`);
-            }
-        }
-        
         // Event listeners
         document.getElementById('checkBtn').addEventListener('click', connect);
-        document.getElementById('logToGitHubBtn').addEventListener('click', createGitHubIssue);
     </script>
 </body>
 </html> 
