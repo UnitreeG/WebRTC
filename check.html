@@ -251,7 +251,19 @@
                         platformName = 'Windows';
                     }
                     downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
-                    runInstructions = `Just double-click the downloaded .exe file to run it. You may need to allow it through Windows security.`;
+                    runInstructions = `Just double-click the downloaded .exe file to run it. If Windows blocks it:
+1. Right-click the .exe file
+2. Select "Properties"
+3. Check the "Unblock" box at the bottom
+4. Click "Apply" and "OK"
+5. Try double-clicking again
+
+Alternatively, you can run from command line:
+1. Open Command Prompt as Administrator
+2. Navigate to the download folder (e.g., <code>cd C:\\Users\\YourUsername\\Downloads</code>)
+3. Run <code>${fileName} --port 3478</code>
+
+If still blocked, you may need to temporarily disable your antivirus or add an exception.`;
                 } 
                 // Check for Linux
                 else if (platform.includes('linux')) {
