@@ -108,23 +108,13 @@
     </style>
 </head>
 <body>
-    <div id="serverDownload" style="margin: 20px auto; max-width: 600px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #ddd;">
-        <h3>WebRTC Signaling Server</h3>
-        <p>To connect to the robot, you need to run the PeerJS signaling server:</p>
-        <ol>
-            <li>Download the PeerJS server for your system: <span id="download-link">Loading download link...</span></li>
-            <li>Run the executable: <span id="run-instructions">Just double-click the downloaded file</span></li>
-            <li>Keep the server running in the background while using this page</li>
-            <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 3478"</li>
-        </ol>
-    </div>
-
     <div class="container">
         <h1>Robot WebRTC Connection Check</h1>
         
         <div class="alert">
             <strong>Instructions:</strong> 
             <ol>
+                <li>Download and run the PeerJS server: <span id="download-link">Loading download link...</span></li>
                 <li>Make sure the robot is powered on</li>
                 <li>Connect to the robot's WiFi network (usually named "GO2-XXXXXX")</li>
                 <li>Click the "Check Connection" button below</li>
@@ -218,26 +208,22 @@
             // Function to update download link based on detected platform/architecture
             function updateDownloadLink() {
                 const downloadLinkElement = document.getElementById('download-link');
-                const runInstructionsElement = document.getElementById('run-instructions');
                 let downloadUrl = '';
                 let fileName = '';
                 let platformName = '';
-                let downloadHtml = '';
-                let runInstructions = '';
                 
                 // Check for MacOS
                 if (platform.includes('mac')) {
                     if (isArm64) {
                         downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos-arm64';
                         fileName = 'peer-macos-arm64';
-                        platformName = 'MacOS (ARM64/Apple Silicon)';
+                        platformName = 'MacOS (ARM64)';
                     } else {
                         downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos';
                         fileName = 'peer-macos';
                         platformName = 'MacOS (Intel)';
                     }
-                    downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
-                    runInstructions = `On MacOS, you'll need to make the file executable. After downloading, right-click the file, then select Open → Open. If blocked by security settings, go to System Preferences → Security & Privacy and click "Open Anyway".`;
+                    downloadLinkElement.innerHTML = `<a href="${downloadUrl}" download="${fileName}">${platformName}</a> - After downloading, right-click → Open → Open`;
                 } 
                 // Check for Windows
                 else if (platform.includes('win')) {
@@ -250,20 +236,7 @@
                         fileName = 'peer-win.exe';
                         platformName = 'Windows';
                     }
-                    downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
-                    runInstructions = `Just double-click the downloaded .exe file to run it. If Windows blocks it:
-1. Right-click the .exe file
-2. Select "Properties"
-3. Check the "Unblock" box at the bottom
-4. Click "Apply" and "OK"
-5. Try double-clicking again
-
-Alternatively, you can run from command line:
-1. Open Command Prompt as Administrator
-2. Navigate to the download folder (e.g., <code>cd C:\\Users\\YourUsername\\Downloads</code>)
-3. Run <code>${fileName} --port 3478</code>
-
-If still blocked, you may need to temporarily disable your antivirus or add an exception.`;
+                    downloadLinkElement.innerHTML = `<a href="${downloadUrl}" download="${fileName}">${platformName}</a> - Just double-click to run`;
                 } 
                 // Check for Linux
                 else if (platform.includes('linux')) {
@@ -276,22 +249,17 @@ If still blocked, you may need to temporarily disable your antivirus or add an e
                         fileName = 'peer-linux';
                         platformName = 'Linux (x64)';
                     }
-                    downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
-                    runInstructions = `On Linux, after downloading, open a terminal and run: <code>chmod +x ${fileName}</code> then double-click the file or run <code>./${fileName}</code>`;
+                    downloadLinkElement.innerHTML = `<a href="${downloadUrl}" download="${fileName}">${platformName}</a> - Make executable with chmod +x ${fileName}`;
                 }
                 // Unknown platform
                 else {
                     // Show all download options
-                    downloadHtml = `
-                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win.exe" download>Windows</a> |
-                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos" download>MacOS</a> |
-                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux" download>Linux</a>
+                    downloadLinkElement.innerHTML = `
+                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win.exe" download="peer-win.exe">Windows</a> |
+                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos" download="peer-macos">MacOS</a> |
+                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux" download="peer-linux">Linux</a>
                     `;
-                    runInstructions = 'Instructions depend on your operating system.';
                 }
-                
-                downloadLinkElement.innerHTML = downloadHtml;
-                runInstructionsElement.innerHTML = runInstructions;
             }
         });
         
