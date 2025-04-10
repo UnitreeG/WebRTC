@@ -356,17 +356,16 @@
                     log(`Connection ID: "${directAnswer.id}"`);
                     log(`Token used: "direct-connection"`);
                     
-                    // Try direct HTTP request to the robot at different ports
-                    let directSuccess = false;
-                    let directError = null;
-                    
                     // Try different ports and endpoints that might be used by the robot
                     const directEndpoints = [
-                        { port: 8080, path: '/webrtc/offer' },
                         { port: 8081, path: '/offer' },
+                        { port: 8080, path: '/webrtc/offer' },
                         { port: 80, path: '/webrtc/offer' },
                         { port: 443, path: '/webrtc/offer' }
                     ];
+                    
+                    let directSuccess = false;
+                    let directError = null;
                     
                     for (const endpoint of directEndpoints) {
                         try {
@@ -420,34 +419,50 @@
                         sdp: peerConnection.localDescription.sdp
                     };
                     
-                    // Try signaling server on port 9991 (observable server)
-                    log(`Trying signaling server at port 9991`);
+                    // Try signaling servers on different ports
+                    const signalingPorts = [8081, 9991];
+                    let signalingSuccess = false;
                     
-                    const serverResponse = await fetch(`http://${window.location.hostname}:9991/offer`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(serverAnswer),
-                    });
-                    
-                    if (!serverResponse.ok) {
-                        throw new Error(`Signaling server failed with status: ${serverResponse.status}`);
+                    for (const port of signalingPorts) {
+                        try {
+                            log(`Trying signaling server at port ${port}`);
+                            
+                            const serverResponse = await fetch(`http://${window.location.hostname}:${port}/offer`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(serverAnswer),
+                                signal: AbortSignal.timeout(3000)
+                            });
+                            
+                            if (!serverResponse.ok) {
+                                throw new Error(`Signaling server on port ${port} failed with status: ${serverResponse.status}`);
+                            }
+                            
+                            const serverData = await serverResponse.json();
+                            log(`Received answer from signaling server on port ${port}`);
+                            log(`SDP answer details: ${serverData.sdp}`);
+                            
+                            // Set remote description from answer
+                            await peerConnection.setRemoteDescription(serverData);
+                            log(`WebRTC connection established via signaling server on port ${port}`);
+                            
+                            signalingSuccess = true;
+                            setConnected(true);
+                            startHeartbeat();
+                            
+                            // Request robot information after connection
+                            setTimeout(requestRobotInfo, 2000);
+                            break; // Exit loop if successful
+                        } catch (err) {
+                            log(`Failed on signaling server port ${port}: ${err.message}`);
+                        }
                     }
                     
-                    const serverData = await serverResponse.json();
-                    log('Received answer from signaling server');
-                    log(`SDP answer details: ${serverData.sdp}`);
-                    
-                    // Set remote description from answer
-                    await peerConnection.setRemoteDescription(serverData);
-                    log('WebRTC connection established via signaling server');
-                    
-                    setConnected(true);
-                    startHeartbeat();
-                    
-                    // Request robot information after connection
-                    setTimeout(requestRobotInfo, 2000);
+                    if (!signalingSuccess) {
+                        throw new Error("All signaling server attempts failed");
+                    }
                     
                 } catch (error) {
                     throw new Error(`All connection methods failed: ${error.message}`);
