@@ -112,26 +112,10 @@
         <h3>WebRTC Signaling Server</h3>
         <p>To connect to the robot, you need to run the PeerJS signaling server:</p>
         <ol>
-            <li>Download the PeerJS server executable for your platform:
-                <ul id="download-links">
-                    <li><a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win.exe" download>Windows Server (x64)</a></li>
-                    <li><a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win-arm64.exe" download>Windows Server (ARM64)</a></li>
-                    <li><a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos" download>MacOS Server (x64)</a></li>
-                    <li><a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos-arm64" download>MacOS Server (ARM64)</a></li>
-                    <li><a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux" download>Linux Server (x64)</a></li>
-                    <li><a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux-arm64" download>Linux Server (ARM64)</a></li>
-                </ul>
-            </li>
-            <li>After downloading, run the executable with port 3478:
-                <ul>
-                    <li id="windows-instructions" style="display: none;">Double-click the .exe file or run <code><span id="win-cmd-name">peer.exe</span> --port 3478</code> in Command Prompt</li>
-                    <li id="macos-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="mac-cmd-name">peer-macos</span></code> then run <code>./<span id="mac-cmd-name2">peer-macos</span> --port 3478</code></li>
-                    <li id="linux-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="linux-cmd-name">peer-linux</span></code> then run <code>./<span id="linux-cmd-name2">peer-linux</span> --port 3478</code></li>
-                </ul>
-            </li>
+            <li>Download the PeerJS server for your system: <span id="download-link">Loading download link...</span></li>
+            <li>Run the executable: <span id="run-instructions">Just double-click the downloaded file</span></li>
             <li>Keep the server running in the background while using this page</li>
             <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 3478"</li>
-            <li>Click "Check Connection" below to connect to your robot</li>
         </ol>
     </div>
 
@@ -209,7 +193,6 @@
             const platform = navigator.platform.toLowerCase();
             const userAgent = navigator.userAgent.toLowerCase();
             let isArm64 = false;
-            let recommendedLink = null;
             
             // Try to detect ARM64
             if (userAgent.includes('arm64') || userAgent.includes('aarch64')) {
@@ -222,7 +205,7 @@
                 .then(data => {
                     if (data.architecture && (data.architecture.includes('arm') || data.architecture.includes('aarch64'))) {
                         isArm64 = true;
-                        updateRecommendation();
+                        updateDownloadLink();
                     }
                 })
                 .catch(error => {
@@ -230,51 +213,73 @@
                 });
             }
             
-            updateRecommendation();
+            updateDownloadLink();
             
-            // Function to update recommendation based on detected platform/architecture
-            function updateRecommendation() {
+            // Function to update download link based on detected platform/architecture
+            function updateDownloadLink() {
+                const downloadLinkElement = document.getElementById('download-link');
+                const runInstructionsElement = document.getElementById('run-instructions');
+                let downloadUrl = '';
+                let fileName = '';
+                let platformName = '';
+                let downloadHtml = '';
+                let runInstructions = '';
+                
                 // Check for MacOS
                 if (platform.includes('mac')) {
                     if (isArm64) {
-                        recommendedLink = document.querySelector('a[href*="peer-macos-arm64"]').closest('li');
+                        downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos-arm64';
+                        fileName = 'peer-macos-arm64';
+                        platformName = 'MacOS (ARM64/Apple Silicon)';
                     } else {
-                        recommendedLink = document.querySelector('a[href*="peer-macos"]').closest('li');
+                        downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos';
+                        fileName = 'peer-macos';
+                        platformName = 'MacOS (Intel)';
                     }
-                    document.getElementById('mac-cmd-name').textContent = isArm64 ? 'peer-macos-arm64' : 'peer-macos';
-                    document.getElementById('mac-cmd-name2').textContent = isArm64 ? 'peer-macos-arm64' : 'peer-macos';
-                    document.getElementById('macos-instructions').style.display = 'list-item';
+                    downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
+                    runInstructions = `On MacOS, you'll need to make the file executable. After downloading, right-click the file, then select Open → Open. If blocked by security settings, go to System Preferences → Security & Privacy and click "Open Anyway".`;
                 } 
                 // Check for Windows
                 else if (platform.includes('win')) {
                     if (isArm64) {
-                        recommendedLink = document.querySelector('a[href*="peer-win-arm64"]').closest('li');
+                        downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win-arm64.exe';
+                        fileName = 'peer-win-arm64.exe';
+                        platformName = 'Windows (ARM64)';
                     } else {
-                        recommendedLink = document.querySelector('a[href*="peer-win.exe"]').closest('li');
+                        downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win.exe';
+                        fileName = 'peer-win.exe';
+                        platformName = 'Windows';
                     }
-                    document.getElementById('win-cmd-name').textContent = isArm64 ? 'peer-win-arm64.exe' : 'peer-win.exe';
-                    document.getElementById('windows-instructions').style.display = 'list-item';
+                    downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
+                    runInstructions = `Just double-click the downloaded .exe file to run it. You may need to allow it through Windows security.`;
                 } 
                 // Check for Linux
                 else if (platform.includes('linux')) {
                     if (isArm64) {
-                        recommendedLink = document.querySelector('a[href*="peer-linux-arm64"]').closest('li');
+                        downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux-arm64';
+                        fileName = 'peer-linux-arm64';
+                        platformName = 'Linux (ARM64)';
                     } else {
-                        recommendedLink = document.querySelector('a[href*="peer-linux"]').closest('li');
+                        downloadUrl = 'https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux';
+                        fileName = 'peer-linux';
+                        platformName = 'Linux (x64)';
                     }
-                    document.getElementById('linux-cmd-name').textContent = isArm64 ? 'peer-linux-arm64' : 'peer-linux';
-                    document.getElementById('linux-cmd-name2').textContent = isArm64 ? 'peer-linux-arm64' : 'peer-linux';
-                    document.getElementById('linux-instructions').style.display = 'list-item';
+                    downloadHtml = `<a href="${downloadUrl}" download>${platformName}</a>`;
+                    runInstructions = `On Linux, after downloading, open a terminal and run: <code>chmod +x ${fileName}</code> then double-click the file or run <code>./${fileName}</code>`;
+                }
+                // Unknown platform
+                else {
+                    // Show all download options
+                    downloadHtml = `
+                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-win.exe" download>Windows</a> |
+                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-macos" download>MacOS</a> |
+                        <a href="https://github.com/UnitreeG/WebRTC/raw/main/peerjs-server/dist/peer-linux" download>Linux</a>
+                    `;
+                    runInstructions = 'Instructions depend on your operating system.';
                 }
                 
-                // Highlight recommended link
-                if (recommendedLink) {
-                    recommendedLink.style.fontWeight = 'bold';
-                    recommendedLink.style.backgroundColor = '#e6f7ff';
-                    recommendedLink.style.padding = '5px';
-                    recommendedLink.style.borderRadius = '3px';
-                    recommendedLink.innerHTML += ' <span style="color: green;">✓ (Recommended for your system)</span>';
-                }
+                downloadLinkElement.innerHTML = downloadHtml;
+                runInstructionsElement.innerHTML = runInstructions;
             }
         });
         
