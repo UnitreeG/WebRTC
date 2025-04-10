@@ -108,6 +108,32 @@
     </style>
 </head>
 <body>
+    <div id="serverDownload" style="margin: 20px auto; max-width: 600px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #ddd;">
+        <h3>WebRTC Signaling Server</h3>
+        <p>To connect to the robot, you need to run the PeerJS signaling server:</p>
+        <ol>
+            <li>Download the PeerJS server executable for your platform:
+                <ul>
+                    <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-win.exe" download>Windows Server (peer-win.exe)</a></li>
+                    <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-macos" download>MacOS Server (peer-macos)</a></li>
+                    <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-linux" download>Linux Server (peer-linux)</a></li>
+                </ul>
+            </li>
+            <li>After downloading, run the executable with port 3478:
+                <ul>
+                    <li id="windows-instructions" style="display: none;">Double-click the .exe file or run <code><span id="win-cmd-name">peer.exe</span> --port 3478</code> in Command Prompt</li>
+                    <li id="macos-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="mac-cmd-name">peer-macos</span></code> then run <code>./<span id="mac-cmd-name2">peer-macos</span> --port 3478</code></li>
+                    <li id="linux-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="linux-cmd-name">peer-linux</span></code> then run <code>./<span id="linux-cmd-name2">peer-linux</span> --port 3478</code></li>
+                </ul>
+            </li>
+            <li>Keep the server running in the background while using this page</li>
+            <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 3478"</li>
+            <li>Click "Check Connection" below to connect to your robot</li>
+        </ol>
+        <p><strong>Alternative for Node.js users:</strong> If you already have Node.js installed, you can simply run:<br>
+        <code>npx peer --port 3478</code></p>
+    </div>
+
     <div class="container">
         <h1>Robot WebRTC Connection Check</h1>
         
@@ -142,32 +168,6 @@
         <div id="errors"></div>
         <div id="robotInfo"></div>
         <div id="log"></div>
-        
-        <div id="serverDownload" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #ddd;">
-            <h3>WebRTC Signaling Server</h3>
-            <p>To connect to the robot, you need to run the PeerJS signaling server:</p>
-            <ol>
-                <li>Download the PeerJS server executable for your platform:
-                    <ul>
-                        <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-win.exe" download>Windows Server (peer-win.exe)</a></li>
-                        <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-macos" download>MacOS Server (peer-macos)</a></li>
-                        <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-linux" download>Linux Server (peer-linux)</a></li>
-                    </ul>
-                </li>
-                <li>After downloading, run the executable with port 3478:
-                    <ul>
-                        <li id="windows-instructions" style="display: none;">Double-click the .exe file or run <code><span id="win-cmd-name">peer.exe</span> --port 3478</code> in Command Prompt</li>
-                        <li id="macos-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="mac-cmd-name">peer-macos</span></code> then run <code>./<span id="mac-cmd-name2">peer-macos</span> --port 3478</code></li>
-                        <li id="linux-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="linux-cmd-name">peer-linux</span></code> then run <code>./<span id="linux-cmd-name2">peer-linux</span> --port 3478</code></li>
-                    </ul>
-                </li>
-                <li>Keep the server running in the background while using this page</li>
-                <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 3478"</li>
-                <li>Click "Check Connection" above to connect to your robot</li>
-            </ol>
-            <p><strong>Alternative for Node.js users:</strong> If you already have Node.js installed, you can simply run:<br>
-            <code>npx peer --port 3478</code></p>
-        </div>
         
         <div id="securityToken" style="margin-top: 20px; padding: 15px; background-color: #fff8dc; border-radius: 5px; border: 1px solid #ffe4b5;">
             <h3>About Security Tokens</h3>
