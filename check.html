@@ -154,18 +154,19 @@
                         <li><a href="https://github.com/UnitreeG/WebRTC/releases/download/v1.0.0/peer-linux" download>Linux Server (peer-linux)</a></li>
                     </ul>
                 </li>
-                <li>Run the downloaded executable with port 8081:
+                <li>After downloading, run the executable with port 3478:
                     <ul>
-                        <li>Windows: Double-click the .exe file or run <code>peer-win.exe --port 8081</code> in Command Prompt</li>
-                        <li>macOS/Linux: First make the file executable with <code>chmod +x peer-macos</code> then run <code>./peer-macos --port 8081</code></li>
+                        <li id="windows-instructions" style="display: none;">Double-click the .exe file or run <code><span id="win-cmd-name">peer.exe</span> --port 3478</code> in Command Prompt</li>
+                        <li id="macos-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="mac-cmd-name">peer-macos</span></code> then run <code>./<span id="mac-cmd-name2">peer-macos</span> --port 3478</code></li>
+                        <li id="linux-instructions" style="display: none;">First make the file executable with <code>chmod +x <span id="linux-cmd-name">peer-linux</span></code> then run <code>./<span id="linux-cmd-name2">peer-linux</span> --port 3478</code></li>
                     </ul>
                 </li>
                 <li>Keep the server running in the background while using this page</li>
-                <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 8081"</li>
+                <li>When the server is running successfully, you'll see a message like "PeerJS server started on port 3478"</li>
                 <li>Click "Check Connection" above to connect to your robot</li>
             </ol>
             <p><strong>Alternative for Node.js users:</strong> If you already have Node.js installed, you can simply run:<br>
-            <code>npx peer --port 8081</code></p>
+            <code>npx peer --port 3478</code></p>
         </div>
         
         <div id="securityToken" style="margin-top: 20px; padding: 15px; background-color: #fff8dc; border-radius: 5px; border: 1px solid #ffe4b5;">
@@ -451,7 +452,7 @@
                     };
                     
                     // Try signaling servers on different ports
-                    const signalingPorts = [8081, 9991];
+                    const signalingPorts = [3478, 8081, 9991];
                     let signalingSuccess = false;
                     
                     for (const port of signalingPorts) {

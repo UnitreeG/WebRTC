@@ -5,7 +5,7 @@ const process = require('process');
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-let port = 9000;
+let port = 3478;
 let path = '/';
 let key = 'peerjs';
 let debug = false;
@@ -27,7 +27,7 @@ for (let i = 0; i < args.length; i++) {
         console.log('PeerJS Server - Simple WebRTC Signaling Server');
         console.log('');
         console.log('Options:');
-        console.log('  --port PORT      Port to listen on (default: 9000)');
+        console.log('  --port PORT      Port to listen on (default: 3478)');
         console.log('  --path PATH      Path for the PeerJS server (default: /)');
         console.log('  --key KEY        API key for the server (default: peerjs)');
         console.log('  --debug          Enable debug mode');
