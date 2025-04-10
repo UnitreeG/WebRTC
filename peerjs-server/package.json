@@ -1,0 +1,43 @@
+{
+  "name": "go2-webrtc-signaling-server",
+  "version": "1.0.0",
+  "description": "WebRTC signaling server for Unitree Go2 robots using PeerJS",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "pkg . --out-path dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "webrtc",
+    "peerjs",
+    "signaling",
+    "go2",
+    "unitree",
+    "robot"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "peer": "^1.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "targets": [
+      "node18-linux-x64",
+      "node18-macos-x64",
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
