@@ -354,7 +354,7 @@
                 
                 // Send offer through local signaling server
                 // Note: In production, ensure proper signaling server is running
-                const response = await fetch(`http://${window.location.hostname}:8081/offer`, {
+                const response = await fetch(`http://${window.location.hostname}:9991/offer`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
